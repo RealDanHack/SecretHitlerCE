@@ -1,0 +1,114 @@
+function topLines(stringIn, maxLinesIn)
+	local linesFound = 0
+	local newLinePos = string.find(stringIn, "\n")
+	local oldLinePos = nil
+
+	while newLinePos do
+		linesFound = linesFound + 1
+		oldLinePos = newLinePos
+		if maxLinesIn == linesFound then break end
+		newLinePos = string.find(stringIn, "\n", newLinePos + 1)
+	end
+
+	if not newLinePos then
+		oldLinePos = string.len(stringIn)
+	end
+
+	return string.sub(stringIn, 1, oldLinePos)
+end
+
+function getAdminPlayers()
+  local adminList = {}
+  local playerList = Player.getPlayers()
+  for _, player in ipairs(playerList) do
+	  if player.admin then
+		  table.insert(adminList, player)
+	  end
+  end
+  playerList = Player.getSpectators()
+  for _, player in ipairs(playerList) do
+	  if player.admin then
+		  table.insert(adminList, player)
+	  end
+  end
+  return adminList
+end
+
+COLOR_TABLE = {[1] = "White", [2] = "Brown", [3] = "Red", [4] = "Orange", [5] = "Yellow", [6] = "Green", [7] = "Teal", [8] = "Blue", [9] = "Purple", [10] = "Pink",
+ ["White"] = 1, ["Brown"] = 2, ["Red"] = 3, ["Orange"] = 4, ["Yellow"] = 5,["Green"] = 6, ["Teal"] = 7, ["Blue"] = 8, ["Purple"] = 9, ["Pink"] = 10}
+
+ function swapHandZone(playerIn1, playerIn2)
+     local handTransformP1 = Player[playerIn1].getHandTransform(1)
+     local handTransformP2 = Player[playerIn2].getHandTransform(1)
+
+     Player[playerIn1].setHandTransform(handTransformP2,1)
+     Player[playerIn2].setHandTransform(handTransformP1,1)
+ end
+
+ function swapHandContent(playerIn1, playerIn2)
+     local handList1 = {}
+     local handList2 = {}
+
+     for _, v in ipairs(Player[playerIn1].getHandObjects(1)) do
+         smartTableInsert(handList1, v)
+     end
+     for _, v in ipairs(Player[playerIn2].getHandObjects(1)) do
+         smartTableInsert(handList2, v)
+     end
+     for _, v in ipairs(handList1) do
+         v.deal(1, playerIn1)
+     end
+     for _, v in ipairs(handList2) do
+         v.deal(1, playerIn2)
+     end
+ end
+
+ function swapHiddenZone(playerIn1, playerIn2)
+     getObjectFromGUID(hidden_zone_guids[Player[playerIn1].color]).setValue(playerIn2)
+     getObjectFromGUID(hidden_zone_guids[Player[playerIn2].color]).setValue(playerIn1)
+
+     hidden_zone_guids[Player[playerIn1].color], hidden_zone_guids[Player[playerIn2].color] = hidden_zone_guids[Player[playerIn2].color], hidden_zone_guids[Player[playerIn1].color]
+
+     COLOR_TABLE[COLOR_TABLE[Player[playerIn1].color]],
+     COLOR_TABLE[COLOR_TABLE[Player[playerIn2].color]]
+     =
+     COLOR_TABLE[COLOR_TABLE[Player[playerIn2].color]],
+     COLOR_TABLE[COLOR_TABLE[Player[playerIn1].color]]
+
+     COLOR_TABLE[Player[playerIn1].color],
+     COLOR_TABLE[Player[playerIn2].color]
+     =
+     COLOR_TABLE[Player[playerIn2].color],
+     COLOR_TABLE[Player[playerIn1].color]
+ end
+
+ function addMissingItems(deck, count)
+ 	if deck then
+ 		local pos = deck.getPosition()
+ 		local addCt = count - #deck.getObjects()
+ 		local params = {}
+ 		params.position = {pos['x'], pos['y'] + 1, pos['z']}
+ 		local card = deck.takeObject(params)
+ 		while addCt > 0 do
+ 			local cloneParams = {position = {pos['x'], pos['y'] + 1 + addCt * 0.1, pos['z']}, sound = false}
+ 			local newCard = card.clone(cloneParams)
+ 			newCard.putObject(deck)
+ 			addCt = addCt - 1
+ 		end
+ 		card.putObject(deck)
+ 	end
+ end
+
+ function deleteExtraItems(deck, count)
+ 	if deck then
+ 		local pos = deck.getPosition()
+ 		local removeCt = #deck.getObjects() - count
+ 		while removeCt > 0 do
+ 			local params = {}
+ 			params.position = {pos['x'], pos['y'] + 3, pos['z']}
+ 			local card = deck.takeObject(params)
+ 			card.destruct()
+ 			removeCt = removeCt - 1
+ 		end
+ 	end
+ end

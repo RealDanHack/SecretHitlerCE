@@ -1,0 +1,451 @@
+--Static
+ALL_PLAYABLE_COLORS = {"White", "Brown", "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink", "Tan", "Maroon"}
+MAIN_PLAYABLE_COLORS = {"White", "Brown", "Red", "Orange", "Yellow", "Green", "Teal", "Blue", "Purple", "Pink"}
+
+GREY_PLAYABLE_COLORS = {"Tan", "Maroon"}
+GREY_PLAYABLE_COLORS_RGB = {Tan = {r = 210/255, g = 180/255, b = 140/255}, Maroon = {r = 128/255, g = 0/255, b = 0/255}}
+GREY_AVATAR_POS = {Tan = {29.30, 9.4, -54}, Maroon = {0, 9.4, -54}}
+GREY_HAND_ZONE_GUIDS = {Maroon = "b9a8d0", Tan = "409da9"}
+GREY_TEXT_GUIDS = {Tan = "37d7b5", Maroon = "13f08c"}
+GREY_VOTE_POS = {Tan = {29.30, 1.05, -35.50}, Maroon = {0, 1.05, -35.50}}
+-- FIXME don't hardcode GREY_ABILITY_POS
+GREY_ABILITY_POS = {Tan = {37, 1.2, -41}, Maroon = {12.60, 1.2, -41}}
+GREY_FORWARD = 0
+GREY_RIGHT = 0
+GREY_UP = 0.3
+
+NO_ROT = {x = 0, y = 0, z = 0}
+FACE_UP_ROT = {x = 0, y = 180, z = 0}
+FACE_DOWN_ROT = {x = 0, y = 180, z = 180}
+
+function getPlayerPosRotVectors(playerColor)
+	local returnVal = {}
+
+	if greyPlayer(playerColor) then
+		local ph = getObjectFromGUID(greyPlayerHandGuids[playerColor])
+		if ph then
+			returnVal.pos = ph.getPosition()
+			returnVal.pos = {x = pos["x"], y = pos["y"], z = pos["z"] - 2.26}
+			returnVal.rot = ph.getRotation()
+			returnVal.vForward = ph.getTransformForward()
+			returnVal.vRight = ph.getTransformRight()
+			returnVal.vUp = ph.getTransformUp()
+		end
+	else
+		local ph = Player[playerColor].getPlayerHand();
+		if ph then
+			returnVal.pos = {x = ph["pos_x"], y = ph["pos_y"], z = ph["pos_z"]}
+			returnVal.rot = {x = ph["rot_x"], y = ph["rot_y"], z = ph["rot_z"]}
+			returnVal.vForward = {x = ph["trigger_forward_x"], y = ph["trigger_forward_y"], z = ph["trigger_forward_z"]}
+			returnVal.vRight = {x = ph["trigger_right_x"], y = ph["trigger_right_y"], z = ph["trigger_right_z"]}
+			returnVal.vUp = {x = ph["trigger_up_x"], y = ph["trigger_up_y"], z = ph["trigger_up_z"]}
+		end
+	end
+
+	return returnVal
+end
+
+--function giveObjectToPlayer(object, playerColor, posAdd, rotAdd, collide, fast)
+function giveObjectToPlayer(object, playerColor, posAdd, rotAdd, ...)
+	local info = getPlayerPosRotVectors(playerColor)
+	if info then
+		if rotAdd["exactRot"] then
+			object.setRotationSmooth({rotAdd["x"], rotAdd["y"], rotAdd["z"]}, ...)
+		else
+			object.setRotationSmooth({info.rot["x"] + rotAdd["x"], info.rot["y"] + rotAdd["y"], info.rot["z"] + rotAdd["z"]}, ...)
+		end
+		if posAdd["forceHeight"] then
+			object.setPositionSmooth({info.pos["x"] + info.vForward["x"] * posAdd["forward"] + info.vRight["x"] * posAdd["right"] + info.vUp["x"] * posAdd["up"],
+											  posAdd["forceHeight"],
+											  info.pos["z"] + info.vForward["z"] * posAdd["forward"] + info.vRight["z"] * posAdd["right"] + info.vUp["z"] * posAdd["up"]}, ...)
+		else
+			object.setPositionSmooth({info.pos["x"] + info.vForward["x"] * posAdd["forward"] + info.vRight["x"] * posAdd["right"] + info.vUp["x"] * posAdd["up"],
+											  info.pos["y"] + info.vForward["y"] * posAdd["forward"] + info.vRight["y"] * posAdd["right"] + info.vUp["y"] * posAdd["up"],
+											  info.pos["z"] + info.vForward["z"] * posAdd["forward"] + info.vRight["z"] * posAdd["right"] + info.vUp["z"] * posAdd["up"]}, ...)
+		end
+	end
+end
+
+function forceObjectToPlayer(object, playerColor, posAdd, rotAdd)
+	local info = getPlayerPosRotVectors(playerColor)
+	if info then
+		if rotAdd["exactRot"] then
+			object.setRotation({rotAdd["x"], rotAdd["y"], rotAdd["z"]})
+		else
+			object.setRotation({info.rot["x"] + rotAdd["x"], info.rot["y"] + rotAdd["y"], info.rot["z"] + rotAdd["z"]})
+		end
+		if posAdd["forceHeight"] then
+			object.setPosition({info.pos["x"] + info.vForward["x"] * posAdd["forward"] + info.vRight["x"] * posAdd["right"] + info.vUp["x"] * posAdd["up"],
+									  posAdd["forceHeight"],
+									  info.pos["z"] + info.vForward["z"] * posAdd["forward"] + info.vRight["z"] * posAdd["right"] + info.vUp["z"] * posAdd["up"]})
+		else
+			object.setPosition({info.pos["x"] + info.vForward["x"] * posAdd["forward"] + info.vRight["x"] * posAdd["right"] + info.vUp["x"] * posAdd["up"],
+									  info.pos["y"] + info.vForward["y"] * posAdd["forward"] + info.vRight["y"] * posAdd["right"] + info.vUp["y"] * posAdd["up"],
+									  info.pos["z"] + info.vForward["z"] * posAdd["forward"] + info.vRight["z"] * posAdd["right"] + info.vUp["z"] * posAdd["up"]})
+		end
+	end
+end
+
+--tableIn = {guid = , max = , forward = , height = }
+function moveObjectToPlayerByGUID(tableIn)
+	local object = getObjectFromGUID(tableIn.guid)
+	if object then
+		local playerColor = closestPlayer(object, players, tableIn.max)
+		if playerColor then
+			giveObjectToPlayer(object, playerColor, {forward = tableIn.forward, right = 0, up = 0, forceHeight = tableIn.height}, NO_ROT, false, true)
+		end
+	end
+end
+
+function findDistance(posA, posB)
+	return math.sqrt((posA["x"] - posB["x"])^2 +
+						  (posA["y"] - posB["y"])^2 +
+						  (posA["z"] - posB["z"])^2)
+end
+
+function closestPlayer(objectIn, playerListIn, maxIn)
+	local playerColorOut = nil
+	local pos = nil
+
+	local lastDistance = maxIn
+	if objectIn then
+		local tempPos = objectIn.getPosition()
+		for i, playerColor in ipairs(playerListIn) do
+			if greyPlayer(playerColor) then
+				ph = getObjectFromGUID(greyPlayerHandGuids[playerColor])
+				if ph then
+					pos = ph.getPosition()
+					pos = {x = pos["x"], y = pos["y"], z = pos["z"] - 2.26}
+				end
+			else
+				local ph = Player[playerColor].getPlayerHand()
+				if ph then
+					pos = {x = ph["pos_x"], y = ph["pos_y"], z = ph["pos_z"]}
+				end
+			end
+			if pos then
+				local distance = findDistance(tempPos, pos);
+				if distance < lastDistance then
+					lastDistance = distance
+					playerColorOut = playerColor
+				end
+			end
+		end
+	end
+
+	return playerColorOut
+end
+
+function sleep(numSeconds)
+	local t0 = os.clock()
+	while os.clock() - t0 <= numSeconds do coroutine.yield(0) end
+end
+
+function wait(numFrames)
+	for i=1,numFrames,1 do coroutine.yield(0) end
+end
+
+function destroyObjectByGUID(guidIn)
+	local dObject = getObjectFromGUID(guidIn)
+	if dObject then destroyObject(dObject) end
+end
+
+function rgbToHex(c)
+	return string.format("%02x%02x%02x", c["r"] * 255 , c["g"] * 255, c["b"] * 255)
+end
+
+function stringColorToHex(color)
+	return rgbToHex(stringColorToRGBExtra(color))
+end
+
+function stringColorToRGBExtra(color)
+	if greyPlayer(color) then
+		return GREY_PLAYABLE_COLORS_RGB[color]
+	else
+		return stringColorToRGB(color)
+	end
+end
+
+function removeBBCode(stringIn)
+	local out = ""
+	local formating = false
+
+	for i = 1, string.len(stringIn) do
+		local tmpChar = string.sub(stringIn, i, i)
+		if tmpChar == "[" then
+			formating = true
+		elseif tmpChar == "]" then
+			formating = false
+		else
+			if not formating then out = out .. tmpChar end
+		end
+	end
+
+	return out
+end
+
+function getPositionByGUID(guidIn)
+	local tmpObj = getObjectFromGUID(guidIn)
+	return tmpObj.getPosition()
+end
+
+function getPositionByGUIDOffsetZ(guidIn, offsetZ)
+	local tmpObj = getObjectFromGUID(guidIn)
+	local pos = tmpObj.getPosition()
+	pos["z"] = pos["z"] + offsetZ
+	return pos
+end
+
+function getDeckFromZoneByGUID(guidIn)
+	local deck = nil
+	local deck_ct = 0
+	local zone = getObjectFromGUID(guidIn)
+	local object
+
+	if zone then
+		local inZone = zone.getObjects()
+		for _, object in ipairs(inZone) do
+			if object.tag == "Card" then
+				deck_ct = 2
+			elseif object.tag == "Deck" then
+				deck = object
+				deck_ct = deck_ct + 1
+			end
+		end
+	end
+	if deck_ct == 1 then
+		return deck
+	end
+	return nil
+end
+
+function inTable(tableIn, valueIn)
+	local value
+	if tableIn then
+		for _, value in pairs(tableIn) do
+			if value == valueIn then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+function smartTableInsert(tableIn, valueIn)
+	if not inTable(tableIn, valueIn) then
+		table.insert(tableIn, valueIn)
+	end
+end
+
+function versionInfo()
+	local msg
+
+	msg = _VERSION -- Lua info
+	if MOD_NAME then
+		msg = msg .. "\nMOD_NAME = " .. MOD_NAME
+	else
+		msg = msg .. "\nMOD_NAME = nil"
+	end
+	if UPDATE_VERSION then
+		msg = msg .. "\nUPDATE_VERSION = " .. UPDATE_VERSION
+	else
+		msg = msg .. "\nUPDATE_VERSION = nil"
+	end
+	msg = msg .. "\nGlobal Lua length " .. string.len(Global.getLuaScript())
+
+	return msg
+end
+
+function nullFunction()
+	--nothing here
+end
+
+-- This allows outside objects to call any function from this code.
+-- Global.call("callFunction", { fcn = "drawCards", params = {amountToDraw, color} })
+function callFunction(packet)
+    assert(type(_G[packet.fcn]) == "function", "No function named " .. packet.fcn .. " exists!")
+    return table.pack(_G[packet.fcn](unpack(packet.params or {})))
+end
+
+function tableToString(tbl, indent)
+	if not indent then indent = 0 end
+	local out = ""
+
+	for k, v in pairs(tbl) do
+   	formatting = string.rep("  ", indent) .. k .. ": "
+   	if type(v) == "table" then
+      	out = out .. formatting .. "\n" .. tableToString(v, indent + 1)
+   	elseif type(v) == "boolean" then
+      	out = out .. formatting .. tostring(v) .. "\n"
+   	else
+			out = out .. formatting .. v .. "\n"
+    end
+  end
+
+  return out
+end
+
+function generateAvatarImageUrl(steamId)
+   return string.format("http://steam-tts.bclass.info/avatar/?i=%s&s=l", steamId)
+end
+
+function greyPlayer(color)
+	if type(color) == "table" then
+		color = color[1]
+	end
+	if inTable(GREY_PLAYABLE_COLORS, color) then
+		return true
+	else
+		return false
+	end
+end
+
+function getPlayerObj(color)
+	if greyPlayer(color) then
+		local playerFound = nil
+		steamId = greyPlayerSteamIds[color]
+		for _, player in ipairs(Player.getSpectators()) do
+			if steamId == player.steam_id then
+				playerFound = player
+				break
+			end
+		end
+		return playerFound
+	else
+		return Player[color]
+	end
+end
+
+function getGreyColor(steamId)
+	local colorFound = nil
+ 	for testColor, testSteamId in pairs(greyPlayerSteamIds) do
+		if steamId == testSteamId then
+			colorFound = testColor
+			break
+		end
+	end
+	return colorFound
+end
+
+--Returns a simple table with all objects and their container GUIDs
+function getObjsFromZone(zoneGUID)
+	local zoneObj = getObjectFromGUID(zoneGUID)
+	local objs = zoneObj.getObjects()
+	local returnTable = {}
+	local deckTab = {}
+	local deckGUID
+
+	for k1,v1 in pairs(objs) do
+		if v1.tag == "Card" then
+			table.insert(returnTable, {
+				name = v1.getName(),
+				description = v1.getDescription(),
+				deck_guid = nil,
+				index = nil,
+				guid = v1.getGUID()
+			})
+		elseif v1.tag == "Deck" then
+			deckGuid = v1.getGUID()
+			deckTab = v1.getObjects()
+			for k2, v2 in pairs(deckTab) do
+				table.insert(returnTable, {
+					name = v2.nickname,
+					description = v2.description,
+					deck_guid = deckGuid,
+					index = v2.index,
+					guid = v2.guid
+				})
+			end
+		end
+	end
+	return returnTable
+end
+
+function shufflePosition(objects)
+	local positionA
+	local positionB
+
+	for i = 1, #objects * 5 do
+		local a = math.random(#objects)
+		local b = math.random(#objects)
+		positionA = objects[a].getPosition()
+		positionB = objects[b].getPosition()
+		objects[b].setPosition(positionA)
+		objects[a].setPosition(positionB)
+	end
+end
+
+function shuffleTable(objects)
+	for i = 1, #objects * 5 do
+		local a = math.random(#objects)
+		local b = math.random(#objects)
+		objects[a], objects[b] = objects[b], objects[a]
+	end
+end
+
+function string:tokenize(sep)
+    local sep, fields = sep or ":", {}
+    local pattern = string.format("([^%s]+)", sep)
+    self:gsub(pattern, function(c) fields[#fields+1] = c end)
+    return fields
+end
+
+function string:titlecase()
+	return string.upper(string.sub(self, 1, 1)) .. string.lower(string.sub(self, 2))
+end
+
+function bigBroadcast(msgIn, playerObjIn)
+	local messageTable = string.tokenize(msgIn, "\n")
+
+	for i=#messageTable, 1, -1 do
+		playerObjIn:broadcast(messageTable[i])
+	end
+end
+
+function getPlayerByName(playerName, playerList)
+   local amountOfPlayersFound = 0
+   local playerToReturn = nil
+
+	if playerName then
+	   for index, name in pairs(playerList) do
+	   	if string.match(string.lower(playerList[index].steam_name), string.lower(playerName)) then
+	         playerToReturn = playerList[index]
+				amountOfPlayersFound = amountOfPlayersFound + 1
+			end
+		end
+
+	   if amountOfPlayersFound == 1 then
+			return playerToReturn
+		end
+	end
+
+	return nil
+end
+
+function getPlayerByNameSteamID(playerNameSteamID, playerList)
+	if playerNameSteamID then
+		local playerFound = getPlayerByName(playerNameSteamID, playerList)
+		if playerFound then
+			return playerFound
+		else
+			for _, p in pairs(playerList) do
+				if p.steam_id == playerNameSteamID then
+					return p
+				end
+			end
+		end
+	end
+
+	return nil
+end
+
+function smartBroadcastToColor(msg, playerColor, msgColor)
+	if greyPlayer(playerColor) then
+		local player = getPlayerObj(playerColor)
+		if player then
+			player.broadcast(msg, msgColor)
+		end
+	else
+		broadcastToColor(msg, playerColor, msgColor)
+	end
+end
